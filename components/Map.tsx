@@ -28,12 +28,26 @@ const cityCoords: Record<string, [number, number]> = {
 
 export default function Map({ initiatives }: { initiatives: any[] }) {
 	// Center roughly on Poland
-	const defaultCenter: [number, number] = [51.9194, 19.1451]
+	const fallbackCenter: [number, number] = [51.9194, 19.1451]
+	
+	let defaultCenter = fallbackCenter;
+	let defaultZoom = 6;
+
+	if (initiatives.length === 1) {
+		const single = initiatives[0];
+		if (single.lat && single.lng) {
+			defaultCenter = [single.lat, single.lng];
+			defaultZoom = 15;
+		} else if (cityCoords[single.city]) {
+			defaultCenter = cityCoords[single.city];
+			defaultZoom = 12;
+		}
+	}
 
 	return (
 		<MapContainer
 			center={defaultCenter}
-			zoom={6}
+			zoom={defaultZoom}
 			style={{ height: '100%', width: '100%', borderRadius: '1rem' }}
 			className='z-0'>
 			<TileLayer
@@ -41,7 +55,7 @@ export default function Map({ initiatives }: { initiatives: any[] }) {
 				url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
 			/>
 			{initiatives
-				.filter(i => i.status !== 'draft')
+				.filter(i => i.status !== 'draft' || initiatives.length === 1)
 				.map(init => {
 					let pos: [number, number];
 					if (init.lat && init.lng) {

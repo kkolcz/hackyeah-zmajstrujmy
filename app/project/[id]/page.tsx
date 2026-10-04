@@ -3,10 +3,10 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { joinInitiativeAction, updateInitiativeAction } from '@/app/actions/initiatives'
+import { joinInitiativeAction, updateInitiativeAction, leaveInitiativeAction } from '@/app/actions/initiatives'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
-import { Leaf, Users, BookOpen, Loader2, MapPin, Printer, Edit3, ArrowLeft, Check, UsersRound, HandHeart, Calendar } from 'lucide-react'
+import { Leaf, Users, BookOpen, Loader2, MapPin, Printer, Edit3, ArrowLeft, Check, UsersRound, HandHeart, Calendar, X } from 'lucide-react'
 import QRCode from 'react-qr-code'
 import dynamic from 'next/dynamic'
 
@@ -48,8 +48,8 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
 
   useEffect(() => { fetchInitiative() }, [id])
 
-  if (isLoading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Ładowanie projektu...</div>
-  if (!initiative) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-zinc-500">Nie znaleziono projektu.</div>
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-gray-500">Ładowanie projektu...</div>
+  if (!initiative) return <div className="min-h-screen flex items-center justify-center text-gray-500">Nie znaleziono projektu.</div>
 
   const isCreator = initiative.creator_id === currentUser?.id;
   const isDraft = initiative.status === 'draft';
@@ -69,6 +69,19 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
       showToast('Dołączyłeś do inicjatywy! 🎉')
     } catch (error) {
       showToast('Już dołączyłeś lub wystąpił błąd.', 'error')
+    }
+  }
+
+  const handleLeave = async () => {
+    if (!currentUser) return;
+    if (confirm('Czy na pewno chcesz zrezygnować z udziału w tej inicjatywie?')) {
+      try {
+        await leaveInitiativeAction(initiative.id, currentUser.id)
+        await fetchInitiative()
+        showToast('Zrezygnowałeś z udziału.')
+      } catch (error) {
+        showToast('Wystąpił błąd podczas wycofywania udziału.', 'error')
+      }
     }
   }
 
@@ -204,52 +217,61 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
 
             {/* Project Specs */}
             {!isEditing && (
-              <div className="grid md:grid-cols-2 gap-8 mb-12">
-                <div>
-                  <h3 className="font-bold text-lg text-gray-900 mb-4 pb-2 border-b border-gray-300 flex items-center gap-2">
-                    <HandHeart className="w-5 h-5 text-gray-500" /> Kogo/Czego szukamy?
-                  </h3>
-                  <ul className="space-y-3 mb-6">
-                    {initiative.suggested_skills?.map((s: string, idx: number) => (
-                      <li key={idx} className="text-gray-800 flex items-start gap-2 text-sm">
-                        <span className="text-red-700 font-bold mt-0.5">•</span> {s}
-                      </li>
-                    ))}
-                  </ul>
-                  {initiative.budget_needed > 0 && (
-                    <div className="bg-gray-50 p-4 border border-gray-300">
-                      <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Potrzebne środki na start</div>
-                      <div className="text-2xl font-bold text-gray-900">{Number(initiative.budget_needed).toFixed(0)} PLN</div>
-                    </div>
-                  )}
+              <>
+                <div className="mb-12 border border-gray-300">
+                  <div className="bg-gray-100 text-xs font-bold text-gray-900 uppercase px-4 py-2 border-b border-gray-300">Lokalizacja projektu</div>
+                  <div className="h-[300px] w-full bg-gray-50 relative z-0">
+                    <Map initiatives={[initiative]} />
+                  </div>
                 </div>
 
-                <div>
-                  <h3 className="font-bold text-lg text-gray-900 mb-4 pb-2 border-b border-gray-300 flex items-center gap-2">
-                    <UsersRound className="w-5 h-5 text-gray-500" /> Zebrana ekipa ({participantsCount}/{maxCount})
-                  </h3>
-                  
-                  <div className="w-full bg-gray-200 h-2 mb-6">
-                    <div className="bg-blue-800 h-2 transition-all duration-1000" style={{width: `${Math.min(100, (participantsCount/maxCount)*100)}%`}}></div>
+                <div className="grid md:grid-cols-2 gap-8 mb-12">
+                  <div>
+                    <h3 className="font-bold text-lg text-gray-900 mb-4 pb-2 border-b border-gray-300 flex items-center gap-2">
+                      <HandHeart className="w-5 h-5 text-gray-500" /> Kogo/Czego szukamy?
+                    </h3>
+                    <ul className="space-y-3 mb-6">
+                      {initiative.suggested_skills?.map((s: string, idx: number) => (
+                        <li key={idx} className="text-gray-800 flex items-start gap-2 text-sm">
+                          <span className="text-red-700 font-bold mt-0.5">•</span> {s}
+                        </li>
+                      ))}
+                    </ul>
+                    {initiative.budget_needed > 0 && (
+                      <div className="bg-gray-50 p-4 border border-gray-300">
+                        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Potrzebne środki na start</div>
+                        <div className="text-2xl font-bold text-gray-900">{Number(initiative.budget_needed).toFixed(0)} PLN</div>
+                      </div>
+                    )}
                   </div>
 
-                  {participantsCount > 0 ? (
-                    <div className="space-y-2">
-                      {initiative.participants.map((p:any) => (
-                        <div key={p.id} className="flex items-center gap-4 bg-gray-50 p-3 border border-gray-300">
-                          <div className="text-xl bg-white w-10 h-10 flex items-center justify-center border border-gray-200">{p.user?.avatar_url || '👤'}</div>
-                          <div>
-                            <div className="font-bold text-sm text-gray-900">{p.user?.name || 'Sąsiad'}</div>
-                            <div className="text-xs text-gray-600">{p.user?.role === 'citizen' ? 'Mieszkaniec' : 'Partner / Sponsor'}</div>
-                          </div>
-                        </div>
-                      ))}
+                  <div>
+                    <h3 className="font-bold text-lg text-gray-900 mb-4 pb-2 border-b border-gray-300 flex items-center gap-2">
+                      <UsersRound className="w-5 h-5 text-gray-500" /> Zebrana ekipa ({participantsCount}/{maxCount})
+                    </h3>
+                    
+                    <div className="w-full bg-gray-200 h-2 mb-6">
+                      <div className="bg-blue-800 h-2 transition-all duration-1000" style={{width: `${Math.min(100, (participantsCount/maxCount)*100)}%`}}></div>
                     </div>
-                  ) : (
-                    <p className="text-gray-600 text-sm bg-gray-50 p-4 border border-gray-300">Jeszcze nikt się nie zgłosił. Bądź pierwszy!</p>
-                  )}
+
+                    {participantsCount > 0 ? (
+                      <div className="space-y-2">
+                        {initiative.participants.map((p:any) => (
+                          <div key={p.id} className="flex items-center gap-4 bg-gray-50 p-3 border border-gray-300">
+                            <div className="text-xl bg-white w-10 h-10 flex items-center justify-center border border-gray-200">{p.user?.avatar_url || '👤'}</div>
+                            <div>
+                              <div className="font-bold text-sm text-gray-900">{p.user?.name || 'Sąsiad'}</div>
+                              <div className="text-xs text-gray-600">{p.user?.role === 'citizen' ? 'Mieszkaniec' : 'Partner / Sponsor'}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-600 text-sm bg-gray-50 p-4 border border-gray-300">Jeszcze nikt się nie zgłosił. Bądź pierwszy!</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {/* Actions */}
@@ -264,9 +286,15 @@ export default function ProjectDetails({ params }: { params: Promise<{ id: strin
               )}
               
               {!isDraft && isParticipant && (
-                <div className="bg-green-50 text-green-800 border border-green-300 text-base font-bold py-3 px-8 flex items-center gap-2">
-                  <Check className="w-5 h-5" /> Udział potwierdzony
-                </div>
+                <button 
+                  onClick={handleLeave}
+                  className="bg-green-50 text-green-800 border border-green-300 text-base font-bold py-3 px-8 hover:bg-red-50 hover:text-red-800 hover:border-red-300 transition-colors flex items-center gap-2 group"
+                >
+                  <Check className="w-5 h-5 group-hover:hidden" />
+                  <X className="w-5 h-5 hidden group-hover:block" />
+                  <span className="group-hover:hidden">Udział potwierdzony</span>
+                  <span className="hidden group-hover:block">Wycofaj się z udziału</span>
+                </button>
               )}
 
               {isCreator && !isEditing && (

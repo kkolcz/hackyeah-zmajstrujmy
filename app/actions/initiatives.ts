@@ -47,6 +47,17 @@ export async function joinInitiativeAction(initiativeId: string, userId: string)
   revalidatePath('/')
 }
 
+export async function leaveInitiativeAction(initiativeId: string, userId: string) {
+  const { error } = await supabase
+    .from('participants')
+    .delete()
+    .eq('initiative_id', initiativeId)
+    .eq('user_id', userId)
+
+  if (error) throw new Error('Nie udało się wycofać udziału')
+  revalidatePath('/')
+}
+
 export async function updateInitiativeAction(initiativeId: string, updates: any) {
   const { error } = await supabase
     .from('initiatives')

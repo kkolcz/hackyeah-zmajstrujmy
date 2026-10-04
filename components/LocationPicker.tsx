@@ -54,8 +54,8 @@ export default function LocationPicker({
     <div className="h-[300px] w-full rounded-xl overflow-hidden border border-gray-300 z-0 shadow-inner">
       <MapContainer center={center} zoom={position ? 12 : 5} style={{ height: '100%', width: '100%' }}>
         <TileLayer
-          attribution='&copy; OpenStreetMap'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
         />
         <MapClick />
         {position && (
